@@ -211,7 +211,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
     setState(() {
       _progress = progress;
-      if (progress >= 1.0) {
+      if (progress >= 0.99) {
         _progressMessage = "🎉 Adventure Ready!";
         _confettiController.play();
       } else if (progress >= 0.75) {
@@ -236,6 +236,16 @@ class _SignupScreenState extends State<SignupScreen> {
         return;
       }
 
+      // Check if all fields are actually complete (progress is 1.0)
+      if (_progress < 0.99) {
+         ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Please fill out all fields and choose an avatar!')),
+        );
+        return;
+      }
+
+
       setState(() {
         _isLoading = true;
       });
@@ -252,6 +262,8 @@ class _SignupScreenState extends State<SignupScreen> {
             builder: (context) => SuccessScreen(
               userName: _nameController.text,
               avatar: _selectedAvatar!,
+              passwordStrength: _passwordStrength,
+              progress: _progress,
             ),
           ),
         );
@@ -512,7 +524,7 @@ class _SignupScreenState extends State<SignupScreen> {
                               const SizedBox(height: 30),
                             ],
                           ),
-                          _buildSubmitButton(),
+                          _buildSubmitButton(constraints.maxWidth), 
                         ],
                       ),
                     ),
@@ -531,7 +543,7 @@ class _SignupScreenState extends State<SignupScreen> {
     required String label,
     required IconData icon,
     required String? Function(String?) validator,
-    required void Function(String) onChanged,
+    Function(String)? onChanged,
   }) {
     return TextFormField(
       controller: controller,
@@ -549,18 +561,24 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
-  Widget _buildSubmitButton() {
+  // **FINAL FIX** Applied ValueKey to children to stop RenderFlex overflow during the AnimatedContainer's transition.
+  Widget _buildSubmitButton(double maxWidth) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
-      width: _isLoading ? 60 : double.infinity,
+      // Use two finite, non-null widths for smooth animation between button and spinner.
+      width: _isLoading ? 60 : maxWidth, 
       height: 60,
       child: _isLoading
           ? const Center(
+              // **Key added here**
+              key: ValueKey('loading'),
               child: CircularProgressIndicator(
                 valueColor: AlwaysStoppedAnimation<Color>(Colors.deepPurple),
               ),
             )
           : ElevatedButton(
+              // **Key added here**
+              key: ValueKey('button'),
               onPressed: _submitForm,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.deepPurple,
@@ -591,8 +609,15 @@ class _SignupScreenState extends State<SignupScreen> {
 class SuccessScreen extends StatefulWidget {
   final String userName;
   final String avatar;
-  const SuccessScreen(
-      {super.key, required this.userName, required this.avatar});
+  final double passwordStrength;
+  final double progress;
+  const SuccessScreen({
+    super.key,
+    required this.userName,
+    required this.avatar,
+    required this.passwordStrength,
+    required this.progress,
+  });
 
   @override
   State<SuccessScreen> createState() => _SuccessScreenState();
@@ -600,6 +625,7 @@ class SuccessScreen extends StatefulWidget {
 
 class _SuccessScreenState extends State<SuccessScreen> {
   late final ConfettiController _confettiController;
+  List<String> badges = [];
 
   @override
   void initState() {
@@ -607,12 +633,29 @@ class _SuccessScreenState extends State<SuccessScreen> {
     _confettiController =
         ConfettiController(duration: const Duration(seconds: 10));
     _confettiController.play();
+
+    badges = _calculateBadges(widget.passwordStrength, widget.progress);
   }
 
   @override
   void dispose() {
     _confettiController.dispose();
     super.dispose();
+  }
+
+  List<String> _calculateBadges(double passwordStrength, double progress) {
+    List<String> badges = [];
+
+    // Strong Password Master
+    if (passwordStrength >= 1.0) badges.add('🏆 Strong Password Master'); 
+
+    // Profile Completer
+    if (progress >= 1.0) badges.add('🎖 Profile Completer');
+
+    // Early Bird Special
+    if (DateTime.now().hour < 12) badges.add('🌅 Early Bird Special');
+
+    return badges;
   }
 
   @override
@@ -675,6 +718,32 @@ class _SuccessScreenState extends State<SuccessScreen> {
                     'Your adventure begins now!',
                     style: TextStyle(fontSize: 18, color: Colors.grey),
                   ),
+
+                  // Badges
+                  if (badges.isNotEmpty)
+                    Column(
+                      children: [
+                        const SizedBox(height: 20),
+                        const Text(
+                          '🏅 Achievements Unlocked!',
+                          style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.deepPurple),
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 12,
+                          children: badges
+                              .map((b) => Chip(
+                                    label: Text(b),
+                                    backgroundColor: Colors.deepPurple[100],
+                                  ))
+                              .toList(),
+                        ),
+                      ],
+                    ),
+
                   const SizedBox(height: 50),
                   ElevatedButton(
                     onPressed: () => _confettiController.play(),
