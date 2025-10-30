@@ -141,9 +141,23 @@ class _SignupScreenState extends State<SignupScreen> {
   // Password Strength
   double _passwordStrength = 0;
 
+  // Adventure Progress Tracker
+  double _progress = 0; // 0.0 to 1.0
+  String _progressMessage = "Let's start your adventure!";
+
   // --- Avatar Selection ---
   final List<String> _avatars = ['🚀', '🐼', '🌸', '🎵', '🦄'];
   String? _selectedAvatar;
+
+  // Confetti Controller
+  late ConfettiController _confettiController;
+
+  @override
+  void initState() {
+    super.initState();
+    _confettiController =
+        ConfettiController(duration: const Duration(seconds: 2));
+  }
 
   @override
   void dispose() {
@@ -151,6 +165,7 @@ class _SignupScreenState extends State<SignupScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _dobController.dispose();
+    _confettiController.dispose();
     super.dispose();
   }
 
@@ -165,6 +180,7 @@ class _SignupScreenState extends State<SignupScreen> {
       setState(() {
         _dobController.text = "${picked.day}/${picked.month}/${picked.year}";
       });
+      _updateProgress();
     }
   }
 
@@ -182,6 +198,31 @@ class _SignupScreenState extends State<SignupScreen> {
     }
     setState(() {
       _passwordStrength = strength.clamp(0, 1);
+    });
+  }
+
+  void _updateProgress() {
+    double progress = 0;
+    if (_nameController.text.isNotEmpty) progress += 0.2;
+    if (_emailController.text.isNotEmpty) progress += 0.2;
+    if (_dobController.text.isNotEmpty) progress += 0.2;
+    if (_passwordController.text.isNotEmpty) progress += 0.2;
+    if (_selectedAvatar != null) progress += 0.2;
+
+    setState(() {
+      _progress = progress;
+      if (progress >= 1.0) {
+        _progressMessage = "🎉 Adventure Ready!";
+        _confettiController.play();
+      } else if (progress >= 0.75) {
+        _progressMessage = "Great! Almost there!";
+      } else if (progress >= 0.5) {
+        _progressMessage = "Halfway through! Keep going!";
+      } else if (progress >= 0.25) {
+        _progressMessage = "Good start! Adventure awaits!";
+      } else {
+        _progressMessage = "Let's start your adventure!";
+      }
     });
   }
 
@@ -242,6 +283,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         children: [
                           Column(
                             children: [
+                              // Tip Container
                               AnimatedContainer(
                                 duration: const Duration(milliseconds: 500),
                                 curve: Curves.easeInOut,
@@ -267,8 +309,38 @@ class _SignupScreenState extends State<SignupScreen> {
                                   ],
                                 ),
                               ),
+                              const SizedBox(height: 20),
+
+                              // Adventure Progress Tracker
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  LinearProgressIndicator(
+                                    value: _progress,
+                                    minHeight: 10,
+                                    backgroundColor: Colors.grey[300],
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      _progress < 0.25
+                                          ? Colors.red
+                                          : _progress < 0.5
+                                              ? Colors.orange
+                                              : _progress < 0.75
+                                                  ? Colors.yellow
+                                                  : Colors.green,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 5),
+                                  Text(
+                                    _progressMessage,
+                                    style: const TextStyle(
+                                        color: Colors.deepPurple,
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
                               const SizedBox(height: 30),
 
+                              // Adventure Name
                               _buildTextField(
                                 controller: _nameController,
                                 label: 'Adventure Name',
@@ -279,9 +351,11 @@ class _SignupScreenState extends State<SignupScreen> {
                                   }
                                   return null;
                                 },
+                                onChanged: (_) => _updateProgress(),
                               ),
                               const SizedBox(height: 20),
 
+                              // Email
                               _buildTextField(
                                 controller: _emailController,
                                 label: 'Email Address',
@@ -296,9 +370,11 @@ class _SignupScreenState extends State<SignupScreen> {
                                   }
                                   return null;
                                 },
+                                onChanged: (_) => _updateProgress(),
                               ),
                               const SizedBox(height: 20),
 
+                              // DOB
                               TextFormField(
                                 controller: _dobController,
                                 readOnly: true,
@@ -330,7 +406,10 @@ class _SignupScreenState extends State<SignupScreen> {
                               TextFormField(
                                 controller: _passwordController,
                                 obscureText: !_isPasswordVisible,
-                                onChanged: _checkPasswordStrength,
+                                onChanged: (value) {
+                                  _checkPasswordStrength(value);
+                                  _updateProgress();
+                                },
                                 decoration: InputDecoration(
                                   labelText: 'Secret Password',
                                   prefixIcon: const Icon(Icons.lock,
@@ -404,6 +483,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                       setState(() {
                                         _selectedAvatar = avatar;
                                       });
+                                      _updateProgress();
                                     },
                                     child: AnimatedContainer(
                                       duration:
@@ -451,6 +531,7 @@ class _SignupScreenState extends State<SignupScreen> {
     required String label,
     required IconData icon,
     required String? Function(String?) validator,
+    required void Function(String) onChanged,
   }) {
     return TextFormField(
       controller: controller,
@@ -464,6 +545,7 @@ class _SignupScreenState extends State<SignupScreen> {
         fillColor: Colors.grey[50],
       ),
       validator: validator,
+      onChanged: onChanged,
     );
   }
 
