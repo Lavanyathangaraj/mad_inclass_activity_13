@@ -138,6 +138,9 @@ class _SignupScreenState extends State<SignupScreen> {
   bool _isPasswordVisible = false;
   bool _isLoading = false;
 
+  // Password Strength
+  double _passwordStrength = 0;
+
   // --- Avatar Selection ---
   final List<String> _avatars = ['🚀', '🐼', '🌸', '🎵', '🦄'];
   String? _selectedAvatar;
@@ -163,6 +166,23 @@ class _SignupScreenState extends State<SignupScreen> {
         _dobController.text = "${picked.day}/${picked.month}/${picked.year}";
       });
     }
+  }
+
+  void _checkPasswordStrength(String password) {
+    double strength = 0;
+    if (password.isEmpty) {
+      strength = 0;
+    } else if (password.length < 6) {
+      strength = 0.25;
+    } else {
+      strength = 0.25;
+      if (RegExp(r'[A-Z]').hasMatch(password)) strength += 0.25;
+      if (RegExp(r'[0-9]').hasMatch(password)) strength += 0.25;
+      if (RegExp(r'[!@#\$&*~]').hasMatch(password)) strength += 0.25;
+    }
+    setState(() {
+      _passwordStrength = strength.clamp(0, 1);
+    });
   }
 
   void _submitForm() {
@@ -306,9 +326,11 @@ class _SignupScreenState extends State<SignupScreen> {
                               ),
                               const SizedBox(height: 20),
 
+                              // Password Field with Strength Meter
                               TextFormField(
                                 controller: _passwordController,
                                 obscureText: !_isPasswordVisible,
+                                onChanged: _checkPasswordStrength,
                                 decoration: InputDecoration(
                                   labelText: 'Secret Password',
                                   prefixIcon: const Icon(Icons.lock,
@@ -343,7 +365,25 @@ class _SignupScreenState extends State<SignupScreen> {
                                   return null;
                                 },
                               ),
-                              const SizedBox(height: 30),
+                              const SizedBox(height: 8),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: LinearProgressIndicator(
+                                  value: _passwordStrength,
+                                  minHeight: 8,
+                                  backgroundColor: Colors.grey[300],
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    _passwordStrength <= 0.25
+                                        ? Colors.red
+                                        : _passwordStrength <= 0.5
+                                            ? Colors.orange
+                                            : _passwordStrength <= 0.75
+                                                ? Colors.yellow
+                                                : Colors.green,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 20),
 
                               // Avatar Selection
                               const Text(
